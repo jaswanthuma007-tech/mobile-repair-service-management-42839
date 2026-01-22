@@ -20,14 +20,29 @@ export const REPAIR_STATUSES = ['requested', 'assigned', 'in_progress', 'complet
  */
 function normalizeRepair(row) {
   if (!row) return null;
+
+  // Support both:
+  // - "frontend demo" column names (customer_id, technician_id, device, issue)
+  // - "backend_api" column names (customer_user_id, technician_user_id, device_type, issue_description)
+  const customerId =
+    row.customer_user_id ??
+    row.customer_id ??
+    row.customerId ??
+    row.user_id ??
+    row.userId;
+
+  const technicianId = row.technician_user_id ?? row.technician_id ?? row.technicianId ?? null;
+
   return {
     id: row.id,
-    customer_id: row.customer_id ?? row.customerId ?? row.user_id ?? row.userId,
-    technician_id: row.technician_id ?? row.technicianId ?? null,
-    device: row.device ?? row.device_model ?? row.model ?? '',
-    issue: row.issue ?? row.problem ?? row.description ?? '',
+    customer_id: customerId,
+    technician_id: technicianId,
+    device: row.device_type ?? row.device ?? row.device_model ?? row.model ?? '',
+    issue: row.issue_description ?? row.issue ?? row.problem ?? row.description ?? '',
     status: row.status ?? 'requested',
-    created_at: row.created_at ?? row.createdAt ?? null
+    created_at: row.created_at ?? row.createdAt ?? null,
+    // Keep updated_at if present; useful for ordering/merging.
+    updated_at: row.updated_at ?? row.updatedAt ?? null
   };
 }
 
@@ -38,10 +53,11 @@ export async function createRepair({ customerId, device, issue }) {
   if (!device?.trim()) throw new Error('device is required');
   if (!issue?.trim()) throw new Error('issue is required');
 
+  // Align with backend_api / DB schema.
   const payload = {
-    customer_id: customerId,
-    device: device.trim(),
-    issue: issue.trim(),
+    customer_user_id: customerId,
+    device_type: device.trim(),
+    issue_description: issue.trim(),
     status: 'requested'
   };
 
@@ -58,7 +74,7 @@ export async function listCustomerRepairs({ customerId }) {
   const { data, error } = await supabase
     .from('repairs')
     .select('*')
-    .eq('customer_id', customerId)
+    .eq('customer_user_id', customerId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -73,7 +89,7 @@ export async function listTechnicianRepairs({ technicianId }) {
   const { data, error } = await supabase
     .from('repairs')
     .select('*')
-    .eq('technician_id', technicianId)
+    .eq('technician_user_id', technicianId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -116,7 +132,7 @@ export async function assignRepair({ id, technicianId }) {
 
   const { data, error } = await supabase
     .from('repairs')
-    .update({ technician_id: technicianId, status: 'assigned' })
+    .update({ technician_user_id: technicianId, status: 'assigned' })
     .eq('id', id)
     .select('*')
     .single();
