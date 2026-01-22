@@ -136,6 +136,16 @@ a:hover {
   color: #991b1b;
 }
 
+/* Small inline code styling used in help text and IDs */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.95em;
+  background: rgba(17, 24, 39, 0.06);
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
 /* App shell */
 .shell {
   min-height: 100vh;
