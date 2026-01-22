@@ -53,9 +53,12 @@ export async function createRepair({ customerId, device, issue }) {
   if (!device?.trim()) throw new Error('device is required');
   if (!issue?.trim()) throw new Error('issue is required');
 
-  // Align with backend_api / DB schema.
+  // IMPORTANT:
+  // - DB schema source-of-truth uses: device_type, issue_description (both NOT NULL)
+  // - RLS must enforce ownership via: customer_user_id = auth.uid()
+  // Therefore we do NOT send customer_user_id from the client; the database policy
+  // must guarantee it matches the logged-in user.
   const payload = {
-    customer_user_id: customerId,
     device_type: device.trim(),
     issue_description: issue.trim(),
     status: 'requested'
