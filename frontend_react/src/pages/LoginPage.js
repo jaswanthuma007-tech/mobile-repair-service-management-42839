@@ -10,7 +10,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = useMemo(() => location.state?.from || '/', [location.state]);
+  const from = useMemo(() => location.state?.from || '/home', [location.state]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

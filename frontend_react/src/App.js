@@ -16,8 +16,24 @@ import './ui/theme.css';
 
 function RootRedirect() {
   const { user, initializing } = useAuth();
-  if (initializing) return null;
+
+  // Avoid a blank screen while bootstrapping the auth session.
+  if (initializing) {
+    return (
+      <div style={{ padding: 24 }}>
+        <p style={{ margin: 0 }}>Loading…</p>
+      </div>
+    );
+  }
+
   return user ? <Navigate to="/" replace /> : <Navigate to="/login" replace />;
+}
+
+function PublicOnlyRoute({ children }) {
+  const { user, initializing } = useAuth();
+  if (initializing) return null;
+  // If already signed in, do not show login/register; go to dashboard.
+  return user ? <Navigate to="/" replace /> : children;
 }
 
 // PUBLIC_INTERFACE
@@ -27,19 +43,40 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          {/* Default route should never be blank. */}
+          <Route path="/" element={<RootRedirect />} />
+
+          <Route
+            path="/login"
+            element={
+              <PublicOnlyRoute>
+                <LoginPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicOnlyRoute>
+                <RegisterPage />
+              </PublicOnlyRoute>
+            }
+          />
 
           {/* Protected area */}
           <Route element={<ProtectedRoute />}>
             <Route element={<DashboardShell />}>
-              <Route path="/" element={<DashboardHome />} />
+              {/* Alias for home inside the protected shell */}
+              <Route path="/home" element={<DashboardHome />} />
               <Route path="/customer" element={<CustomerPage />} />
               <Route path="/technician" element={<TechnicianPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              {/* Keep / as the canonical landing in the shell for signed-in users */}
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </Route>
           </Route>
 
+          {/* Fallback */}
           <Route path="*" element={<RootRedirect />} />
         </Routes>
       </BrowserRouter>
