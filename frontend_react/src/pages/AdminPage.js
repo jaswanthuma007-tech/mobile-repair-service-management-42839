@@ -68,7 +68,15 @@ export default function AdminPage() {
   useEffect(() => {
     const unsubscribe = subscribeToRepairChanges({
       onChange: payload => {
-        const changed = repairFromRealtimePayload(payload);
+        const eventType = payload?.eventType;
+        if (eventType === 'DELETE') {
+          const removed = repairFromRealtimePayload({ old: payload?.old ?? null });
+          if (!removed) return;
+          setRepairs(prev => prev.filter(r => r.id !== removed.id));
+          return;
+        }
+
+        const changed = repairFromRealtimePayload({ new: payload?.new ?? null });
         if (!changed) return;
         setRepairs(prev => mergeRepair(prev, changed));
       }

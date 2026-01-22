@@ -63,11 +63,35 @@ export default function TechnicianPage() {
 
     const unsubscribe = subscribeToRepairChanges({
       onChange: payload => {
-        const changed = repairFromRealtimePayload(payload);
-        if (!changed) return;
-        // Keep list scoped to “assigned to me”.
-        if (changed.technician_id !== technicianId) return;
-        setRepairs(prev => mergeRepair(prev, changed));
+        const eventType = payload?.eventType;
+        const nextRow = payload?.new ?? null;
+        const oldRow = payload?.old ?? null;
+
+        // If a row is deleted, remove it if it was in our list.
+        if (eventType === 'DELETE') {
+          const removed = repairFromRealtimePayload({ old: oldRow });
+          if (!removed) return;
+          setRepairs(prev => prev.filter(r => r.id !== removed.id));
+          return;
+        }
+
+        // For UPDATE/INSERT, we need to:
+        // - add/merge if assigned to me
+        // - remove if it was previously assigned to me but no longer is
+        const changed = repairFromRealtimePayload({ new: nextRow });
+        const oldNorm = oldRow ? repairFromRealtimePayload({ old: oldRow }) : null;
+
+        const wasMine = oldNorm?.technician_id === technicianId;
+        const isMine = changed?.technician_id === technicianId;
+
+        if (isMine && changed) {
+          setRepairs(prev => mergeRepair(prev, changed));
+          return;
+        }
+
+        if (wasMine && !isMine && oldNorm) {
+          setRepairs(prev => prev.filter(r => r.id !== oldNorm.id));
+        }
       }
     });
 

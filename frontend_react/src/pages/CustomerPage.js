@@ -74,9 +74,23 @@ export default function CustomerPage() {
 
     const unsubscribe = subscribeToRepairChanges({
       onChange: payload => {
-        const changed = repairFromRealtimePayload(payload);
+        const eventType = payload?.eventType;
+        const nextRow = payload?.new ?? null;
+        const oldRow = payload?.old ?? null;
+
+        // For DELETE we must remove from list; mergeRepair would incorrectly keep it.
+        if (eventType === 'DELETE') {
+          const removed = repairFromRealtimePayload({ old: oldRow });
+          if (!removed) return;
+          if (removed.customer_id !== customerId) return;
+          setRepairs(prev => prev.filter(r => r.id !== removed.id));
+          return;
+        }
+
+        const changed = repairFromRealtimePayload({ new: nextRow });
         if (!changed) return;
         if (changed.customer_id !== customerId) return;
+
         setRepairs(prev => mergeRepair(prev, changed));
       }
     });
