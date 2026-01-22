@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import '../ui/theme.css';
-import { Button, Card, TextField } from '../ui/components';
 import RepairsList from '../ui/RepairsList';
+import { Alert, Button, Card, TextField } from '../ui/tw';
 import {
   createRepair,
   getRepairById,
@@ -78,7 +77,6 @@ export default function CustomerPage() {
         const nextRow = payload?.new ?? null;
         const oldRow = payload?.old ?? null;
 
-        // For DELETE we must remove from list; mergeRepair would incorrectly keep it.
         if (eventType === 'DELETE') {
           const removed = repairFromRealtimePayload({ old: oldRow });
           if (!removed) return;
@@ -133,35 +131,21 @@ export default function CustomerPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
+    <div className="grid gap-6">
       <div>
-        <h1 style={{ marginTop: 0, marginBottom: 6 }}>Customer</h1>
-        <div style={{ color: 'var(--ocean-muted)', maxWidth: 840 }}>
+        <h1 className="text-2xl font-black tracking-tight">Customer</h1>
+        <div className="mt-2 max-w-3xl text-sm text-ocean-muted">
           Create a repair booking and track its status. This page subscribes to Supabase Realtime changes on the{' '}
-          <code>repairs</code> table.
+          <code className="rounded-lg border border-black/10 bg-black/5 px-2 py-0.5 font-mono text-xs">repairs</code> table.
         </div>
       </div>
 
-      {errorMsg ? <div className="alert">{errorMsg}</div> : null}
-      {infoMsg ? (
-        <div
-          className="alert"
-          style={{
-            borderColor: 'rgba(37,99,235,0.22)',
-            background: 'rgba(37,99,235,0.08)',
-            color: '#1d4ed8'
-          }}
-        >
-          {infoMsg}
-        </div>
-      ) : null}
+      {errorMsg ? <Alert>{errorMsg}</Alert> : null}
+      {infoMsg ? <Alert variant="info">{infoMsg}</Alert> : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)', gap: 14 }}>
-        <Card
-          title="Create booking"
-          footer={<span style={{ color: 'var(--ocean-muted)' }}>Bookings are tied to your Supabase user id.</span>}
-        >
-          <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Create booking" footer={<span>Bookings are tied to your Supabase user id.</span>}>
+          <form onSubmit={onCreate} className="grid gap-3">
             <TextField
               label="Device"
               value={device}
@@ -183,41 +167,35 @@ export default function CustomerPage() {
           </form>
         </Card>
 
-        <div className="card" style={{ width: 'auto' }}>
-          <h2 className="cardTitle">Selected repair</h2>
-          <div className="cardBody" style={{ gap: 10 }}>
+        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_20px_rgba(17,24,39,0.06)]">
+          <h2 className="text-lg font-extrabold tracking-tight">Selected repair</h2>
+          <div className="mt-3 grid gap-3">
             {!selectedRepair ? (
-              <div style={{ color: 'var(--ocean-muted)' }}>Select a repair from the list to view details.</div>
+              <div className="text-sm text-ocean-muted">Select a repair from the list to view details.</div>
             ) : (
               <>
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <div style={{ fontWeight: 800, letterSpacing: '-0.01em' }}>{selectedRepair.device || 'Device'}</div>
-                  <div style={{ color: 'var(--ocean-muted)' }}>{selectedRepair.issue || '—'}</div>
+                <div className="grid gap-1">
+                  <div className="text-base font-extrabold tracking-tight">{selectedRepair.device || 'Device'}</div>
+                  <div className="text-sm text-ocean-muted">{selectedRepair.issue || '—'}</div>
                 </div>
 
-                <div style={{ display: 'grid', gap: 4, fontSize: 14 }}>
+                <div className="grid gap-1 text-sm">
                   <div>
-                    <span style={{ color: 'var(--ocean-muted)' }}>Status:</span>{' '}
-                    <span style={{ fontWeight: 700 }}>{selectedRepair.status || 'requested'}</span>
+                    <span className="font-semibold text-ocean-muted">Status:</span>{' '}
+                    <span className="font-semibold text-ocean-text">{selectedRepair.status || 'requested'}</span>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--ocean-muted)' }}>Technician:</span>{' '}
-                    <span style={{ fontWeight: 700 }}>{selectedRepair.technician_id || 'Unassigned'}</span>
+                    <span className="font-semibold text-ocean-muted">Technician:</span>{' '}
+                    <span className="font-semibold text-ocean-text">{selectedRepair.technician_id || 'Unassigned'}</span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--ocean-muted)' }}>Repair ID:</span>{' '}
-                    <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
-                      {selectedRepair.id}
-                    </span>
+                  <div className="break-all">
+                    <span className="font-semibold text-ocean-muted">Repair ID:</span>{' '}
+                    <span className="font-mono text-xs font-semibold">{selectedRepair.id}</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Button
-                    variant="secondary"
-                    onClick={() => refreshDetail(selectedRepair.id)}
-                    disabled={loadingDetail}
-                  >
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => refreshDetail(selectedRepair.id)} disabled={loadingDetail}>
                     {loadingDetail ? 'Refreshing…' : 'Refresh'}
                   </Button>
                 </div>
@@ -227,10 +205,10 @@ export default function CustomerPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>Your repairs</h2>
-          <div style={{ color: 'var(--ocean-muted)', fontSize: 13 }}>{loadingList ? 'Loading…' : null}</div>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-extrabold tracking-tight">Your repairs</h2>
+          <div className="text-sm text-ocean-muted">{loadingList ? 'Loading…' : null}</div>
         </div>
 
         <RepairsList repairs={repairs} selectedId={selectedId} onSelect={setSelectedId} />

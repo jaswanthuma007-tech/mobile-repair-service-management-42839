@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import '../ui/theme.css';
-import { Button } from '../ui/components';
 import RepairsList from '../ui/RepairsList';
+import { Alert, Button } from '../ui/tw';
 import {
   listTechnicianRepairs,
   repairFromRealtimePayload,
@@ -67,7 +66,6 @@ export default function TechnicianPage() {
         const nextRow = payload?.new ?? null;
         const oldRow = payload?.old ?? null;
 
-        // If a row is deleted, remove it if it was in our list.
         if (eventType === 'DELETE') {
           const removed = repairFromRealtimePayload({ old: oldRow });
           if (!removed) return;
@@ -75,9 +73,6 @@ export default function TechnicianPage() {
           return;
         }
 
-        // For UPDATE/INSERT, we need to:
-        // - add/merge if assigned to me
-        // - remove if it was previously assigned to me but no longer is
         const changed = repairFromRealtimePayload({ new: nextRow });
         const oldNorm = oldRow ? repairFromRealtimePayload({ old: oldRow }) : null;
 
@@ -113,43 +108,43 @@ export default function TechnicianPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
+    <div className="grid gap-6">
       <div>
-        <h1 style={{ marginTop: 0, marginBottom: 6 }}>Technician</h1>
-        <div style={{ color: 'var(--ocean-muted)', maxWidth: 860 }}>
+        <h1 className="text-2xl font-black tracking-tight">Technician</h1>
+        <div className="mt-2 max-w-3xl text-sm text-ocean-muted">
           Your assigned jobs. This page subscribes to Supabase Realtime changes and updates the list instantly.
         </div>
       </div>
 
-      {errorMsg ? <div className="alert">{errorMsg}</div> : null}
+      {errorMsg ? <Alert>{errorMsg}</Alert> : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 1.2fr) minmax(320px, 0.8fr)', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <h2 style={{ margin: 0 }}>Assigned to you</h2>
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 13 }}>{loadingList ? 'Loading…' : null}</div>
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-extrabold tracking-tight">Assigned to you</h2>
+            <div className="text-sm text-ocean-muted">{loadingList ? 'Loading…' : null}</div>
           </div>
 
           <RepairsList repairs={repairs} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
 
-        <div className="card" style={{ width: 'auto' }}>
-          <h2 className="cardTitle">Update status</h2>
-          <div className="cardBody" style={{ gap: 10 }}>
+        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_20px_rgba(17,24,39,0.06)]">
+          <h2 className="text-lg font-extrabold tracking-tight">Update status</h2>
+          <div className="mt-3 grid gap-3">
             {!selectedRepair ? (
-              <div style={{ color: 'var(--ocean-muted)' }}>Select a repair to update.</div>
+              <div className="text-sm text-ocean-muted">Select a repair to update.</div>
             ) : (
               <>
-                <div style={{ display: 'grid', gap: 4 }}>
-                  <div style={{ fontWeight: 800 }}>{selectedRepair.device || 'Device'}</div>
-                  <div style={{ color: 'var(--ocean-muted)' }}>{selectedRepair.issue || '—'}</div>
-                  <div style={{ fontSize: 14 }}>
-                    <span style={{ color: 'var(--ocean-muted)' }}>Current:</span>{' '}
-                    <span style={{ fontWeight: 800 }}>{selectedRepair.status}</span>
+                <div className="grid gap-1">
+                  <div className="text-base font-extrabold tracking-tight">{selectedRepair.device || 'Device'}</div>
+                  <div className="text-sm text-ocean-muted">{selectedRepair.issue || '—'}</div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-ocean-muted">Current:</span>{' '}
+                    <span className="font-semibold text-ocean-text">{selectedRepair.status}</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gap: 8 }}>
+                <div className="grid gap-2">
                   <Button variant="secondary" onClick={() => setStatus('in_progress')} disabled={updating}>
                     Mark in progress
                   </Button>
@@ -161,7 +156,7 @@ export default function TechnicianPage() {
                   </Button>
                 </div>
 
-                <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>
+                <div className="text-xs text-ocean-muted">
                   Note: ensure your Supabase RLS policies allow technicians to update status for their assigned repairs.
                 </div>
               </>

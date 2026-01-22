@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Button, Card, TextField } from '../ui/components';
+import { Alert, Button, Card, TextField } from '../ui/tw';
 
 // PUBLIC_INTERFACE
 export default function RegisterPage() {
-  /** Register form that creates a Supabase email/password user. */
+  /** Register form that creates a Supabase email/password user; stores role in user metadata and best-effort profiles upsert. */
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
+  const [role, setRole] = useState('customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -22,15 +23,15 @@ export default function RegisterPage() {
     setInfoMsg('');
     setLoading(true);
     try {
-      const { user } = await signUp({ email, password });
+      const { user } = await signUp({ email, password, role });
+
       // Depending on Supabase email confirmation settings, session may not be created immediately.
       if (user) {
         setInfoMsg('Account created. You can now sign in.');
-        navigate('/login', { replace: true });
       } else {
-        setInfoMsg('Account created. Please check your email to confirm, then sign in.');
-        navigate('/login', { replace: true });
+        setInfoMsg('Account created. Please check your email to verify, then sign in.');
       }
+      navigate('/login', { replace: true });
     } catch (err) {
       setErrorMsg(err?.message || 'Registration failed.');
     } finally {
@@ -39,54 +40,54 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="pageCenter">
-      <Card
-        title="Create account"
-        footer={
-          <>
-            <span>
-              Already have an account? <Link to="/login">Sign in</Link>
-            </span>
-            <span style={{ color: 'var(--ocean-muted)' }}>No secrets hardcoded</span>
-          </>
-        }
-      >
-        {errorMsg ? <div className="alert">{errorMsg}</div> : null}
-        {infoMsg ? (
-          <div
-            className="alert"
-            style={{
-              borderColor: 'rgba(245,158,11,0.28)',
-              background: 'rgba(245,158,11,0.10)',
-              color: '#92400e'
-            }}
+    <Card
+      title="Create account"
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Already have an account? <Link to="/login">Sign in</Link>
+          </span>
+          <span className="text-xs">Email verification supported</span>
+        </div>
+      }
+    >
+      {errorMsg ? <Alert>{errorMsg}</Alert> : null}
+      {infoMsg ? <Alert variant="info">{infoMsg}</Alert> : null}
+
+      <form onSubmit={onSubmit} className="grid gap-3">
+        <div className="grid gap-1.5">
+          <label className="text-sm font-medium text-ocean-muted" htmlFor="role">
+            Role (demo)
+          </label>
+          <select
+            id="role"
+            className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ocean-text outline-none transition focus:border-blue-500/60 focus:ring-4 focus:ring-blue-500/10"
+            value={role}
+            onChange={e => setRole(e.target.value)}
           >
-            {infoMsg}
+            <option value="customer">Customer</option>
+            <option value="technician">Technician</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div className="text-xs text-ocean-muted">
+            For production, restrict admin/technician assignment via server-side rules or admin tooling.
           </div>
-        ) : null}
+        </div>
 
-        <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
-          <TextField
-            label="Email"
-            value={email}
-            onChange={setEmail}
-            placeholder="you@company.com"
-            autoComplete="email"
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            placeholder="Create a strong password"
-            autoComplete="new-password"
-          />
+        <TextField label="Email" value={email} onChange={setEmail} placeholder="you@company.com" autoComplete="email" />
+        <TextField
+          label="Password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          placeholder="Create a strong password"
+          autoComplete="new-password"
+        />
 
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Creating…' : 'Create account'}
-          </Button>
-        </form>
-      </Card>
-    </div>
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Creating…' : 'Create account'}
+        </Button>
+      </form>
+    </Card>
   );
 }

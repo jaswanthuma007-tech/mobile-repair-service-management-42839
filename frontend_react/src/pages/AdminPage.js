@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import '../ui/theme.css';
-import { Button, TextField } from '../ui/components';
 import RepairsList from '../ui/RepairsList';
+import { Alert, Button, TextField } from '../ui/tw';
 import {
   assignRepair,
   listAllRepairs,
@@ -118,60 +117,40 @@ export default function AdminPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
+    <div className="grid gap-6">
       <div>
-        <h1 style={{ marginTop: 0, marginBottom: 6 }}>Admin</h1>
-        <div style={{ color: 'var(--ocean-muted)', maxWidth: 980 }}>
-          Operational overview. Live updates come from Supabase Realtime on <code>public.repairs</code>.
+        <h1 className="text-2xl font-black tracking-tight">Admin</h1>
+        <div className="mt-2 max-w-4xl text-sm text-ocean-muted">
+          Operational overview. Live updates come from Supabase Realtime on{' '}
+          <code className="rounded-lg border border-black/10 bg-black/5 px-2 py-0.5 font-mono text-xs">public.repairs</code>.
         </div>
       </div>
 
-      {errorMsg ? <div className="alert">{errorMsg}</div> : null}
+      {errorMsg ? <Alert>{errorMsg}</Alert> : null}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 12
-        }}
-      >
-        <div className="card" style={{ width: 'auto' }}>
-          <div className="cardBody">
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>Total</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.total}</div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {[
+          ['Total', stats.total],
+          ['Requested', stats.requested],
+          ['Assigned', stats.assigned],
+          ['In progress', stats.in_progress],
+          ['Completed', stats.completed]
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_10px_20px_rgba(17,24,39,0.06)]"
+          >
+            <div className="text-xs font-bold uppercase tracking-wide text-ocean-muted">{label}</div>
+            <div className="mt-1 text-2xl font-black">{value}</div>
           </div>
-        </div>
-        <div className="card" style={{ width: 'auto' }}>
-          <div className="cardBody">
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>Requested</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.requested}</div>
-          </div>
-        </div>
-        <div className="card" style={{ width: 'auto' }}>
-          <div className="cardBody">
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>Assigned</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.assigned}</div>
-          </div>
-        </div>
-        <div className="card" style={{ width: 'auto' }}>
-          <div className="cardBody">
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>In progress</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.in_progress}</div>
-          </div>
-        </div>
-        <div className="card" style={{ width: 'auto' }}>
-          <div className="cardBody">
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>Completed</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.completed}</div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 1.2fr) minmax(320px, 0.8fr)', gap: 14 }}>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <h2 style={{ margin: 0 }}>All repairs</h2>
-            <div style={{ color: 'var(--ocean-muted)', fontSize: 13 }}>{loading ? 'Loading…' : null}</div>
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-extrabold tracking-tight">All repairs</h2>
+            <div className="text-sm text-ocean-muted">{loading ? 'Loading…' : null}</div>
           </div>
 
           <RepairsList
@@ -179,30 +158,28 @@ export default function AdminPage() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             actionSlot={r => (
-              <span style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>
-                {r.technician_id ? `Tech: ${r.technician_id}` : 'Unassigned'}
-              </span>
+              <span className="text-xs text-ocean-muted">{r.technician_id ? `Tech: ${r.technician_id}` : 'Unassigned'}</span>
             )}
           />
         </div>
 
-        <div className="card" style={{ width: 'auto' }}>
-          <h2 className="cardTitle">Actions</h2>
-          <div className="cardBody" style={{ gap: 10 }}>
+        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_20px_rgba(17,24,39,0.06)]">
+          <h2 className="text-lg font-extrabold tracking-tight">Actions</h2>
+          <div className="mt-3 grid gap-3">
             {!selectedRepair ? (
-              <div style={{ color: 'var(--ocean-muted)' }}>Select a repair to manage.</div>
+              <div className="text-sm text-ocean-muted">Select a repair to manage.</div>
             ) : (
               <>
-                <div style={{ display: 'grid', gap: 4 }}>
-                  <div style={{ fontWeight: 900 }}>{selectedRepair.device || 'Device'}</div>
-                  <div style={{ color: 'var(--ocean-muted)' }}>{selectedRepair.issue || '—'}</div>
-                  <div style={{ fontSize: 14 }}>
-                    <span style={{ color: 'var(--ocean-muted)' }}>Status:</span>{' '}
-                    <span style={{ fontWeight: 800 }}>{selectedRepair.status}</span>
+                <div className="grid gap-1">
+                  <div className="text-base font-extrabold tracking-tight">{selectedRepair.device || 'Device'}</div>
+                  <div className="text-sm text-ocean-muted">{selectedRepair.issue || '—'}</div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-ocean-muted">Status:</span>{' '}
+                    <span className="font-semibold text-ocean-text">{selectedRepair.status}</span>
                   </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--ocean-border)', paddingTop: 10, display: 'grid', gap: 10 }}>
+                <div className="grid gap-3 border-t border-black/10 pt-3">
                   <TextField
                     label="Assign technician id"
                     value={assignTechnicianId}
@@ -215,7 +192,7 @@ export default function AdminPage() {
                   </Button>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--ocean-border)', paddingTop: 10, display: 'grid', gap: 8 }}>
+                <div className="grid gap-2 border-t border-black/10 pt-3">
                   <Button variant="secondary" onClick={() => setStatus('assigned')} disabled={busy}>
                     Mark assigned
                   </Button>
@@ -230,7 +207,7 @@ export default function AdminPage() {
                   </Button>
                 </div>
 
-                <div style={{ color: 'var(--ocean-muted)', fontSize: 12 }}>
+                <div className="text-xs text-ocean-muted">
                   Note: admin assignment/status changes require appropriate Supabase RLS policies.
                 </div>
               </>

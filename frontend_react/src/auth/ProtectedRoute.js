@@ -10,8 +10,8 @@ export function ProtectedRoute() {
 
   if (initializing) {
     return (
-      <div style={{ padding: 24 }}>
-        <p style={{ margin: 0 }}>Loading session…</p>
+      <div className="min-h-full bg-ocean-bg">
+        <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-ocean-muted">Loading session…</div>
       </div>
     );
   }

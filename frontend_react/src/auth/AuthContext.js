@@ -3,6 +3,17 @@ import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
+async function bestEffortUpsertProfile({ user, role }) {
+  // Best-effort: if the "profiles" table exists and RLS allows, set role there.
+  // This aligns with backend_api runtime spec (/profiles/me).
+  if (!user?.id || !role) return;
+  try {
+    await supabase.from('profiles').upsert({ user_id: user.id, role }, { onConflict: 'user_id' });
+  } catch {
+    // Intentionally ignore to avoid blocking signup if schema/RLS is not ready yet.
+  }
+}
+
 // PUBLIC_INTERFACE
 export function AuthProvider({ children }) {
   /** Holds the current Supabase session and user and provides auth helper methods. */
@@ -58,11 +69,33 @@ export function AuthProvider({ children }) {
       },
 
       // PUBLIC_INTERFACE
-      async signUp({ email, password }) {
-        /** Register a user via email+password. */
-        const { data, error } = await supabase.auth.signUp({ email, password });
+      async signUp({ email, password, role = 'customer' }) {
+        /** Register a user via email+password. Optionally sets app role (customer|technician|admin) in profiles. */
+        const siteUrl = process.env.REACT_APP_SITE_URL || process.env.SITE_URL || window.location.origin;
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            // IMPORTANT: ask orchestrator/user to set REACT_APP_SITE_URL in .env for production.
+            emailRedirectTo: `${siteUrl}/login`,
+            data: { role }
+          }
+        });
         if (error) throw error;
+
+        // If a user object is returned immediately, try to upsert profile role.
+        await bestEffortUpsertProfile({ user: data?.user, role });
+
         return data;
+      },
+
+      // PUBLIC_INTERFACE
+      async sendPasswordResetEmail({ email }) {
+        /** Sends Supabase password reset email. */
+        const siteUrl = process.env.REACT_APP_SITE_URL || process.env.SITE_URL || window.location.origin;
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${siteUrl}/login` });
+        if (error) throw error;
       },
 
       // PUBLIC_INTERFACE
