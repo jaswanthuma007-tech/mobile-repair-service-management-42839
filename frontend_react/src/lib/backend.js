@@ -1,9 +1,13 @@
 /**
  * Backend API base URL helper.
- * NOTE: backend_api OpenAPI spec currently only has a health check route. This is kept for
- * upcoming API integration work.
+ *
+ * In Create React App builds, only environment variables prefixed with REACT_APP_
+ * are injected at build time. We support both to keep local tooling flexible.
  */
-const baseUrl = process.env.BACKEND_BASE_URL || '';
+const baseUrl =
+  process.env.REACT_APP_BACKEND_BASE_URL ||
+  process.env.BACKEND_BASE_URL ||
+  '';
 
 // PUBLIC_INTERFACE
 export function getBackendBaseUrl() {
