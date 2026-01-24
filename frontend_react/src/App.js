@@ -20,6 +20,11 @@ import CustomerPage from './pages/CustomerPage';
 import TechnicianPage from './pages/TechnicianPage';
 import AdminPage from './pages/AdminPage';
 
+import SelectBrandPage from './pages/customer/SelectBrandPage';
+import SelectModelPage from './pages/customer/SelectModelPage';
+import SelectIssuePage from './pages/customer/SelectIssuePage';
+import ConfirmBookingPage from './pages/customer/ConfirmBookingPage';
+
 function RootRedirect() {
   const { user, initializing } = useAuth();
 
@@ -99,6 +104,13 @@ function App() {
               <Route path="/customer" element={<CustomerPage />} />
               <Route path="/technician" element={<TechnicianPage />} />
               <Route path="/admin" element={<AdminPage />} />
+
+              {/* Customer booking flow (multi-step) */}
+              <Route path="/select-brand" element={<SelectBrandPage />} />
+              <Route path="/select-model" element={<SelectModelPage />} />
+              <Route path="/select-issue" element={<SelectIssuePage />} />
+              <Route path="/confirm-booking" element={<ConfirmBookingPage />} />
+
               {/* Back-compat alias */}
               <Route path="/dashboard" element={<Navigate to="/customer" replace />} />
             </Route>

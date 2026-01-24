@@ -6,8 +6,11 @@ import { supabase } from './supabaseClient';
  * This project has historically used multiple DB column layouts for `public.repairs`:
  * 1) "frontend demo" layout:
  *    - customer_id, technician_id, device, issue, status, created_at
- * 2) "backend_api" layout (per OpenAPI spec in interfaces/backend_api_openapi.runtime.json):
+ * 2) "backend_api" layout (per OpenAPI spec):
  *    - customer_user_id, technician_user_id, device_type, issue_description, status, created_at
+ *
+ * New Customer Portal spec adds optional columns:
+ *   - brand, model, issue (or issue_description), status='Booked'
  *
  * To keep the app working across environments (and avoid NOT NULL/RLS failures),
  * this module detects the available column layout once (cached) and then uses
@@ -15,7 +18,7 @@ import { supabase } from './supabaseClient';
  */
 
 // PUBLIC_INTERFACE
-export const REPAIR_STATUSES = ['requested', 'assigned', 'in_progress', 'completed', 'cancelled'];
+export const REPAIR_STATUSES = ['requested', 'assigned', 'in_progress', 'completed', 'cancelled', 'Booked'];
 
 let repairsSchemaPromise = null;
 
@@ -36,12 +39,23 @@ function normalizeRepair(row) {
 
   const technicianId = row.technician_user_id ?? row.technician_id ?? row.technicianId ?? null;
 
+  // Prefer explicit brand/model columns if present, otherwise parse from "device"
+  const brand = row.brand ?? null;
+  const model = row.model ?? row.model_name ?? null;
+
   return {
     id: row.id,
     customer_id: customerId,
     technician_id: technicianId,
+
+    // Legacy UI fields:
     device: row.device_type ?? row.device ?? row.device_model ?? row.model ?? '',
     issue: row.issue_description ?? row.issue ?? row.problem ?? row.description ?? '',
+
+    // New UI fields:
+    brand,
+    model,
+
     status: row.status ?? 'requested',
     created_at: row.created_at ?? row.createdAt ?? null,
     updated_at: row.updated_at ?? row.updatedAt ?? null
@@ -105,14 +119,11 @@ async function getRepairsSchema() {
         return c;
       }
 
-      // If error indicates missing column, continue; otherwise, still continue to try fallback,
-      // because NOT NULL constraints might differ by layout.
       // eslint-disable-next-line no-console
       console.warn('[repairsApi] schema probe failed for', c.name, error?.message || error);
     }
 
     // If we get here, we couldn't confidently determine. Default to backend_api layout.
-    // This keeps behavior aligned with the backend spec.
     return candidates[0];
   })();
 
@@ -139,6 +150,69 @@ export async function createRepair({ device, issue }) {
   };
 
   const { data, error } = await supabase.from('repairs').insert(payload).select('*').single();
+  if (error) throw error;
+  return normalizeRepair(data);
+}
+
+// PUBLIC_INTERFACE
+export async function createBooking({ brand, model, issue }) {
+  /**
+   * Creates a new repair booking from the multi-step portal.
+   *
+   * Spec insertion:
+   * - customer_user_id = auth.uid()
+   * - brand
+   * - model
+   * - issue
+   * - status = 'Booked'
+   *
+   * Compatibility strategy:
+   * - Always write the schema's issueCol (issue / issue_description)
+   * - Also attempt to include brand/model columns if the table supports them (best-effort)
+   * - If brand/model columns do not exist, we fall back to storing device_type/device = `${brand} ${model}`
+   */
+  const brandValue = typeof brand === 'string' ? brand.trim() : '';
+  const modelValue = typeof model === 'string' ? model.trim() : '';
+  const issueValue = typeof issue === 'string' ? issue.trim() : '';
+
+  if (!brandValue) throw new Error('Brand is required.');
+  if (!modelValue) throw new Error('Model is required.');
+  if (!issueValue) throw new Error('Issue is required.');
+
+  const user = await requireAuthedUser();
+  const schema = await getRepairsSchema();
+
+  const deviceValue = `${brandValue} ${modelValue}`.trim();
+
+  // First attempt: include brand/model columns (if they exist)
+  const payloadWithBrandModel = {
+    [schema.customerIdCol]: user.id,
+    [schema.deviceCol]: deviceValue,
+    [schema.issueCol]: issueValue,
+    status: 'Booked',
+    brand: brandValue,
+    model: modelValue
+  };
+
+  let { data, error } = await supabase.from('repairs').insert(payloadWithBrandModel).select('*').single();
+
+  if (error) {
+    // If schema doesn't have brand/model columns, retry without them.
+    // eslint-disable-next-line no-console
+    console.warn('[repairsApi] createBooking retrying without brand/model:', error?.message || error);
+
+    const fallbackPayload = {
+      [schema.customerIdCol]: user.id,
+      [schema.deviceCol]: deviceValue,
+      [schema.issueCol]: issueValue,
+      status: 'Booked'
+    };
+
+    const retry = await supabase.from('repairs').insert(fallbackPayload).select('*').single();
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error) throw error;
   return normalizeRepair(data);
 }
@@ -243,13 +317,9 @@ export function subscribeToRepairChanges({ onChange, repairId } = {}) {
 
   const channel = supabase
     .channel(channelName)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'repairs', filter },
-      payload => {
-        onChange(payload);
-      }
-    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'repairs', filter }, payload => {
+      onChange(payload);
+    })
     .subscribe();
 
   return () => {
