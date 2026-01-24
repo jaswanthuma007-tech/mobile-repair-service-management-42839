@@ -3,16 +3,21 @@ import { supabase } from './supabaseClient';
 /**
  * Repairs data-access helper using Supabase PostgREST + Realtime.
  *
- * Assumptions (DB schema):
- * - Table: public.repairs
- * - Columns: id (uuid/int), customer_id (uuid), technician_id (uuid|null),
- *            device (text), issue (text), status (text), created_at (timestamptz)
+ * This project has historically used multiple DB column layouts for `public.repairs`:
+ * 1) "frontend demo" layout:
+ *    - customer_id, technician_id, device, issue, status, created_at
+ * 2) "backend_api" layout (per OpenAPI spec in interfaces/backend_api_openapi.runtime.json):
+ *    - customer_user_id, technician_user_id, device_type, issue_description, status, created_at
  *
- * This file intentionally keeps business logic minimal and “frontend-safe”.
+ * To keep the app working across environments (and avoid NOT NULL/RLS failures),
+ * this module detects the available column layout once (cached) and then uses
+ * the correct column names for inserts/filters/updates.
  */
 
 // PUBLIC_INTERFACE
 export const REPAIR_STATUSES = ['requested', 'assigned', 'in_progress', 'completed', 'cancelled'];
+
+let repairsSchemaPromise = null;
 
 /**
  * Normalizes different “repair” row shapes into a UI-friendly model.
@@ -21,9 +26,7 @@ export const REPAIR_STATUSES = ['requested', 'assigned', 'in_progress', 'complet
 function normalizeRepair(row) {
   if (!row) return null;
 
-  // Support both:
-  // - "frontend demo" column names (customer_id, technician_id, device, issue)
-  // - "backend_api" column names (customer_user_id, technician_user_id, device_type, issue_description)
+  // Support both layouts.
   const customerId =
     row.customer_user_id ??
     row.customer_id ??
@@ -41,9 +44,79 @@ function normalizeRepair(row) {
     issue: row.issue_description ?? row.issue ?? row.problem ?? row.description ?? '',
     status: row.status ?? 'requested',
     created_at: row.created_at ?? row.createdAt ?? null,
-    // Keep updated_at if present; useful for ordering/merging.
     updated_at: row.updated_at ?? row.updatedAt ?? null
   };
+}
+
+async function requireAuthedUser() {
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
+
+  if (error) throw error;
+  if (!user?.id) throw new Error('You must be signed in to book a repair.');
+  return user;
+}
+
+/**
+ * Detect which repair table columns exist.
+ *
+ * We do this by attempting a minimal insert using one layout; if it fails due to
+ * missing columns, we try the other layout. To avoid leaving test rows behind,
+ * we immediately delete the inserted row.
+ */
+async function getRepairsSchema() {
+  if (repairsSchemaPromise) return repairsSchemaPromise;
+
+  repairsSchemaPromise = (async () => {
+    const user = await requireAuthedUser();
+
+    // Try backend_api layout first (matches the provided OpenAPI spec).
+    const candidates = [
+      {
+        name: 'backend_api',
+        customerIdCol: 'customer_user_id',
+        technicianIdCol: 'technician_user_id',
+        deviceCol: 'device_type',
+        issueCol: 'issue_description'
+      },
+      {
+        name: 'frontend_demo',
+        customerIdCol: 'customer_id',
+        technicianIdCol: 'technician_id',
+        deviceCol: 'device',
+        issueCol: 'issue'
+      }
+    ];
+
+    for (const c of candidates) {
+      const probePayload = {
+        [c.customerIdCol]: user.id,
+        [c.deviceCol]: '__schema_probe__',
+        [c.issueCol]: '__schema_probe__'
+      };
+
+      const { data, error } = await supabase.from('repairs').insert(probePayload).select('id').single();
+
+      if (!error && data?.id) {
+        // Best-effort cleanup. Even if RLS blocks delete, at worst we leave a single probe row.
+        await supabase.from('repairs').delete().eq('id', data.id);
+        return c;
+      }
+
+      // If error indicates missing column, continue; otherwise, still continue to try fallback,
+      // because NOT NULL constraints might differ by layout.
+      // eslint-disable-next-line no-console
+      console.warn('[repairsApi] schema probe failed for', c.name, error?.message || error);
+    }
+
+    // If we get here, we couldn't confidently determine. Default to backend_api layout.
+    // This keeps behavior aligned with the backend spec.
+    return candidates[0];
+  })();
+
+  return repairsSchemaPromise;
 }
 
 // PUBLIC_INTERFACE
@@ -56,24 +129,13 @@ export async function createRepair({ device, issue }) {
   if (!deviceValue) throw new Error('Device is required.');
   if (!issueValue) throw new Error('Issue is required.');
 
-  // IMPORTANT:
-  // - RLS policy requires: customer_user_id = auth.uid()
-  // - Table has NOT NULL constraints for: device, issue
-  // So we must:
-  //   1) explicitly send customer_user_id as auth.uid() (not from caller input)
-  //   2) send device + issue using the correct column names
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser();
-
-  if (authError) throw authError;
-  if (!user?.id) throw new Error('You must be signed in to book a repair.');
+  const user = await requireAuthedUser();
+  const schema = await getRepairsSchema();
 
   const payload = {
-    customer_user_id: user.id,
-    device: deviceValue,
-    issue: issueValue
+    [schema.customerIdCol]: user.id,
+    [schema.deviceCol]: deviceValue,
+    [schema.issueCol]: issueValue
   };
 
   const { data, error } = await supabase.from('repairs').insert(payload).select('*').single();
@@ -86,10 +148,12 @@ export async function listCustomerRepairs({ customerId }) {
   /** Lists repairs belonging to a customer. */
   if (!customerId) throw new Error('customerId is required');
 
+  const schema = await getRepairsSchema();
+
   const { data, error } = await supabase
     .from('repairs')
     .select('*')
-    .eq('customer_user_id', customerId)
+    .eq(schema.customerIdCol, customerId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -101,10 +165,12 @@ export async function listTechnicianRepairs({ technicianId }) {
   /** Lists repairs assigned to a technician. */
   if (!technicianId) throw new Error('technicianId is required');
 
+  const schema = await getRepairsSchema();
+
   const { data, error } = await supabase
     .from('repairs')
     .select('*')
-    .eq('technician_user_id', technicianId)
+    .eq(schema.technicianIdCol, technicianId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -145,9 +211,11 @@ export async function assignRepair({ id, technicianId }) {
   if (!id) throw new Error('id is required');
   if (!technicianId) throw new Error('technicianId is required');
 
+  const schema = await getRepairsSchema();
+
   const { data, error } = await supabase
     .from('repairs')
-    .update({ technician_user_id: technicianId, status: 'assigned' })
+    .update({ [schema.technicianIdCol]: technicianId, status: 'assigned' })
     .eq('id', id)
     .select('*')
     .single();
