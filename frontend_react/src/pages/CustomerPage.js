@@ -113,11 +113,26 @@ export default function CustomerPage() {
   const onCreate = async e => {
     e.preventDefault();
     if (!customerId) return;
+
+    const deviceValue = device.trim();
+    const issueValue = issue.trim();
+
     setErrorMsg('');
     setInfoMsg('');
+
+    // Extra UI-side validation (in addition to repairsApi) for better UX.
+    if (!deviceValue) {
+      setErrorMsg('Please enter your device.');
+      return;
+    }
+    if (!issueValue) {
+      setErrorMsg('Please describe the issue.');
+      return;
+    }
+
     setLoadingCreate(true);
     try {
-      const created = await createRepair({ customerId, device, issue });
+      const created = await createRepair({ device: deviceValue, issue: issueValue });
       setRepairs(prev => [created, ...prev]);
       setSelectedId(created.id);
       setDevice('');

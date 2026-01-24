@@ -47,21 +47,33 @@ function normalizeRepair(row) {
 }
 
 // PUBLIC_INTERFACE
-export async function createRepair({ customerId, device, issue }) {
-  /** Creates a new repair booking for a customer. */
-  if (!customerId) throw new Error('customerId is required');
-  if (!device?.trim()) throw new Error('device is required');
-  if (!issue?.trim()) throw new Error('issue is required');
+export async function createRepair({ device, issue }) {
+  /** Creates a new repair booking for the currently authenticated customer (auth.uid()). */
+  const deviceValue = typeof device === 'string' ? device.trim() : '';
+  const issueValue = typeof issue === 'string' ? issue.trim() : '';
+
+  // Client-side guards to prevent NOT NULL constraint violations and bad payloads.
+  if (!deviceValue) throw new Error('Device is required.');
+  if (!issueValue) throw new Error('Issue is required.');
 
   // IMPORTANT:
-  // - DB schema source-of-truth uses: device_type, issue_description (both NOT NULL)
-  // - RLS must enforce ownership via: customer_user_id = auth.uid()
-  // Therefore we do NOT send customer_user_id from the client; the database policy
-  // must guarantee it matches the logged-in user.
+  // - RLS policy requires: customer_user_id = auth.uid()
+  // - Table has NOT NULL constraints for: device, issue
+  // So we must:
+  //   1) explicitly send customer_user_id as auth.uid() (not from caller input)
+  //   2) send device + issue using the correct column names
+  const {
+    data: { user },
+    error: authError
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!user?.id) throw new Error('You must be signed in to book a repair.');
+
   const payload = {
-    device_type: device.trim(),
-    issue_description: issue.trim(),
-    status: 'requested'
+    customer_user_id: user.id,
+    device: deviceValue,
+    issue: issueValue
   };
 
   const { data, error } = await supabase.from('repairs').insert(payload).select('*').single();

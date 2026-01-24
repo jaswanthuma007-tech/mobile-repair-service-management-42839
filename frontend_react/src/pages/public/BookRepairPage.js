@@ -39,10 +39,24 @@ export default function BookRepairPage() {
       return;
     }
 
+    const deviceValue = device.trim();
+    const issueValue = issue.trim();
+    const contactValue = preferredContact.trim();
+
+    // Client-side validation to prevent null/empty inserts.
+    if (!deviceValue) {
+      setErrorMsg('Please enter your device brand/model.');
+      return;
+    }
+    if (!issueValue) {
+      setErrorMsg('Please describe the issue.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Note: our current Supabase table helper maps device->device_type and issue->issue_description.
-      const created = await createRepair({ customerId, device, issue: `${issue}${preferredContact ? `\nContact: ${preferredContact}` : ''}` });
+      const combinedIssue = contactValue ? `${issueValue}\nContact: ${contactValue}` : issueValue;
+      const created = await createRepair({ device: deviceValue, issue: combinedIssue });
       setCreatedTicketId(created.id);
     } catch (err) {
       setErrorMsg(err?.message || 'Failed to create booking.');
