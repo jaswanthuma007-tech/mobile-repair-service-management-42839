@@ -1,0 +1,97 @@
+/* Ocean Professional - micro-animations and polish helpers
+   - Uses reduced-motion friendly fallbacks
+   - Intended for public marketing surfaces (HomePage) */
+
+@media (prefers-reduced-motion: no-preference) {
+  .anim-fade-up {
+    animation: fadeUp 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .anim-fade-in {
+    animation: fadeIn 600ms ease both;
+  }
+
+  .anim-float {
+    animation: floatY 6s ease-in-out infinite;
+  }
+
+  .anim-float-slow {
+    animation: floatY 9s ease-in-out infinite;
+  }
+
+  .anim-glow-pulse {
+    animation: glowPulse 2.8s ease-in-out infinite;
+  }
+
+  .anim-delay-100 {
+    animation-delay: 100ms;
+  }
+  .anim-delay-200 {
+    animation-delay: 200ms;
+  }
+  .anim-delay-300 {
+    animation-delay: 300ms;
+  }
+  .anim-delay-500 {
+    animation-delay: 500ms;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes floatY {
+  0%,
+  100% {
+    transform: translate3d(0, 0px, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 18px 34px rgba(37, 99, 235, 0.14);
+  }
+  50% {
+    box-shadow: 0 22px 44px rgba(37, 99, 235, 0.22);
+  }
+}
+
+/* A subtle shine effect for premium CTAs. */
+@media (prefers-reduced-motion: no-preference) {
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-shine::after {
+    content: "";
+    position: absolute;
+    inset: -40% -60%;
+    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.35) 48%, transparent 60%);
+    transform: translateX(-40%);
+    transition: transform 700ms ease;
+  }
+  .btn-shine:hover::after {
+    transform: translateX(55%);
+  }
+}
