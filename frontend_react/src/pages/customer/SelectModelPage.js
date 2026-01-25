@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { listModelsForBrand } from '../../lib/catalogApi';
+import { listBrands, listModelsForBrand } from '../../lib/catalogApi';
 import { loadBookingDraft, updateBookingDraft } from '../../lib/bookingSession';
 import { Alert, Button, TextField } from '../../ui/tw';
 import { BookingStepProgress } from '../../ui/bookingFlow';
@@ -24,7 +24,12 @@ function ModelCard({ name, active, onClick }) {
         <div className="truncate text-sm font-extrabold tracking-tight text-ocean-text">{name}</div>
         <div className="text-xs text-ocean-muted">Tap to continue</div>
       </div>
-      <div className={cn('rounded-full border px-3 py-1 text-xs font-bold', active ? 'border-blue-500/25 bg-blue-500/10 text-blue-800' : 'border-black/10 bg-black/5 text-ocean-muted')}>
+      <div
+        className={cn(
+          'rounded-full border px-3 py-1 text-xs font-bold',
+          active ? 'border-blue-500/25 bg-blue-500/10 text-blue-800' : 'border-black/10 bg-black/5 text-ocean-muted'
+        )}
+      >
         Select
       </div>
     </button>
@@ -33,16 +38,14 @@ function ModelCard({ name, active, onClick }) {
 
 // PUBLIC_INTERFACE
 export default function SelectModelPage() {
-  /** Step 2: Choose model (fetched from Supabase device_models). */
+  /** Step 2: Choose model (fetched from Supabase device_models by brand_id). */
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
-  const brandFromQuery = params.get('brand') || '';
-  const brandId = params.get('brand_id') || null;
+  const brandId = params.get('brand_id') || '';
 
   const draft = useMemo(() => loadBookingDraft(), []);
-  const draftBrandName = draft?.brand?.name || '';
-  const brandName = brandFromQuery || draftBrandName;
+  const [brandName, setBrandName] = useState(draft?.brand?.name || '');
 
   const [models, setModels] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState(null);
@@ -60,7 +63,7 @@ export default function SelectModelPage() {
   }, [models, search]);
 
   useEffect(() => {
-    if (!brandName) {
+    if (!brandId) {
       setErrorMsg('Missing brand selection. Please go back and select a brand.');
       return;
     }
@@ -70,7 +73,14 @@ export default function SelectModelPage() {
       setErrorMsg('');
       setLoading(true);
       try {
-        const rows = await listModelsForBrand({ brandId, brandName });
+        // Ensure we have brand name for the draft (Confirm page needs it).
+        if (!brandName) {
+          const brands = await listBrands();
+          const found = (brands || []).find(b => String(b.id) === String(brandId));
+          if (mounted && found?.name) setBrandName(found.name);
+        }
+
+        const rows = await listModelsForBrand({ brandId });
         if (!mounted) return;
         setModels(rows || []);
       } catch (e) {
@@ -90,12 +100,14 @@ export default function SelectModelPage() {
 
   const onContinue = () => {
     if (!selectedModel) return;
+
     updateBookingDraft({
-      brand: draft?.brand?.name ? draft.brand : { id: brandId, name: brandName, logo_url: null },
+      brand: { id: brandId, name: brandName, logo_url: draft?.brand?.logo_url ?? null },
       model: { id: selectedModel.id, model_name: selectedModel.model_name },
       issue: null
     });
-    navigate('/select-issue');
+
+    navigate(`/issues?model_id=${encodeURIComponent(selectedModel.id)}`);
   };
 
   return (
@@ -108,8 +120,7 @@ export default function SelectModelPage() {
           </Link>
         </div>
         <p className="max-w-3xl text-sm text-ocean-muted">
-          Brand:{' '}
-          <span className="font-semibold text-ocean-text">{brandName || '—'}</span>
+          Brand: <span className="font-semibold text-ocean-text">{brandName || '—'}</span>
         </p>
       </div>
 

@@ -6,6 +6,13 @@ import { createBooking } from '../../lib/repairsApi';
 import { Alert, Button } from '../../ui/tw';
 import { BookingStepProgress } from '../../ui/bookingFlow';
 
+function formatMoney(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n);
+}
+
 // PUBLIC_INTERFACE
 export default function ConfirmBookingPage() {
   /** Step 4: Confirmation page. Inserts booking into repairs with status='Booked'. */
@@ -15,7 +22,8 @@ export default function ConfirmBookingPage() {
   const draft = useMemo(() => loadBookingDraft(), []);
   const brandName = draft?.brand?.name || '';
   const modelName = draft?.model?.model_name || '';
-  const issueText = draft?.issue?.effective || draft?.issue?.value || '';
+  const issueName = draft?.issue?.name || '';
+  const issuePrice = draft?.issue?.price;
 
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -30,18 +38,18 @@ export default function ConfirmBookingPage() {
       return;
     }
 
-    if (!brandName || !modelName || !issueText) {
+    if (!brandName || !modelName || !issueName) {
       setErrorMsg('Missing booking details. Please restart booking.');
       return;
     }
 
     setBusy(true);
     try {
-      const created = await createBooking({ brand: brandName, model: modelName, issue: issueText });
+      const created = await createBooking({ brand: brandName, model: modelName, issue: issueName });
       setSuccessId(created.id);
       clearBookingDraft();
 
-      // Navigate back to customer portal where the "Your Repairs" list will show it.
+      // Navigate back to customer portal where "My Repairs" list will show it.
       setTimeout(() => {
         navigate('/customer', { replace: true });
       }, 900);
@@ -80,7 +88,12 @@ export default function ConfirmBookingPage() {
           </div>
           <div className="sm:col-span-2">
             <div className="text-xs font-bold uppercase tracking-wide text-ocean-muted">Issue</div>
-            <div className="mt-1 text-sm text-ocean-text">{issueText || '—'}</div>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-ocean-text">{issueName || '—'}</div>
+              <div className="rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xs font-bold text-ocean-text">
+                {formatMoney(issuePrice)}
+              </div>
+            </div>
           </div>
           <div className="sm:col-span-2">
             <div className="text-xs font-bold uppercase tracking-wide text-ocean-muted">User email</div>
@@ -89,7 +102,7 @@ export default function ConfirmBookingPage() {
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4">
-          <Button variant="secondary" onClick={() => navigate('/select-issue')}>
+          <Button variant="secondary" onClick={() => (draft?.model?.id ? navigate(`/issues?model_id=${encodeURIComponent(draft.model.id)}`) : navigate('/select-brand'))}>
             Back
           </Button>
 

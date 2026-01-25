@@ -63,7 +63,7 @@ export default function SelectBrandPage() {
       model: null,
       issue: null
     });
-    navigate(`/select-model?brand=${encodeURIComponent(selectedBrand.name)}&brand_id=${encodeURIComponent(selectedBrand.id)}`);
+    navigate(`/models?brand_id=${encodeURIComponent(selectedBrand.id)}`);
   };
 
   return (

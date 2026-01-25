@@ -109,6 +109,11 @@ function App() {
 
               {/* Customer booking flow (multi-step) */}
               <Route path="/select-brand" element={<SelectBrandPage />} />
+              <Route path="/models" element={<SelectModelPage />} />
+              <Route path="/issues" element={<SelectIssuePage />} />
+              <Route path="/confirm" element={<ConfirmBookingPage />} />
+
+              {/* Back-compat aliases */}
               <Route path="/select-model" element={<SelectModelPage />} />
               <Route path="/select-issue" element={<SelectIssuePage />} />
               <Route path="/confirm-booking" element={<ConfirmBookingPage />} />

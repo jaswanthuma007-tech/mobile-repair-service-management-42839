@@ -1,71 +1,138 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { listServicesForModel } from '../../lib/catalogApi';
 import { loadBookingDraft, updateBookingDraft } from '../../lib/bookingSession';
-import { Alert, Button, TextArea } from '../../ui/tw';
+import { Alert, Button } from '../../ui/tw';
 import { BookingStepProgress } from '../../ui/bookingFlow';
 
 function cn(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
-const ISSUES = [
-  'Screen broken',
-  'Battery problem',
-  'Charging issue',
-  'Speaker issue',
-  'Camera issue',
-  'Network issue',
-  'Other'
-];
+function formatMoney(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n);
+}
+
+function ServiceCard({ name, price, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-2xl border bg-white px-4 py-4 text-left shadow-[0_10px_20px_rgba(17,24,39,0.06)] transition',
+        'hover:-translate-y-0.5 hover:shadow-[0_16px_26px_rgba(17,24,39,0.10)] focus:outline-none focus:ring-4 focus:ring-blue-500/15',
+        active ? 'border-blue-500/30 ring-4 ring-blue-500/10' : 'border-black/10'
+      )}
+      aria-pressed={active ? 'true' : 'false'}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-extrabold tracking-tight text-ocean-text">{name}</div>
+          <div className="mt-1 text-xs text-ocean-muted">Tap to select</div>
+        </div>
+        <div className="shrink-0 rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xs font-bold text-ocean-text">
+          {formatMoney(price)}
+        </div>
+      </div>
+    </button>
+  );
+}
 
 // PUBLIC_INTERFACE
 export default function SelectIssuePage() {
-  /** Step 3: Choose a common issue (or enter custom when "Other"). */
+  /** Step 3: Choose issue/service from Supabase `services` table by model_id. */
   const navigate = useNavigate();
-  const draft = useMemo(() => loadBookingDraft(), []);
+  const [params] = useSearchParams();
 
+  const modelId = params.get('model_id') || '';
+
+  const draft = useMemo(() => loadBookingDraft(), []);
   const brandName = draft?.brand?.name || '';
   const modelName = draft?.model?.model_name || '';
 
-  const [selectedIssue, setSelectedIssue] = useState(draft?.issue?.value || '');
-  const [otherText, setOtherText] = useState(draft?.issue?.otherText || '');
+  const [services, setServices] = useState([]);
+  const [selectedServiceId, setSelectedServiceId] = useState(draft?.issue?.id || null);
 
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const effectiveIssue = useMemo(() => {
-    if (selectedIssue === 'Other') return otherText.trim();
-    return selectedIssue.trim();
-  }, [selectedIssue, otherText]);
+  const selectedService = useMemo(
+    () => services.find(s => String(s.id) === String(selectedServiceId)) || null,
+    [services, selectedServiceId]
+  );
+
+  useEffect(() => {
+    if (!modelId) {
+      setErrorMsg('Missing model selection. Please go back and select a model.');
+      return;
+    }
+
+    let mounted = true;
+    const load = async () => {
+      setErrorMsg('');
+      setLoading(true);
+      try {
+        const rows = await listServicesForModel({ modelId });
+        if (!mounted) return;
+        setServices(rows || []);
+      } catch (e) {
+        if (!mounted) return;
+        setErrorMsg(e?.message || 'Failed to load services from Supabase. Ensure services table exists.');
+        setServices([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [modelId]);
 
   const onContinue = () => {
     setErrorMsg('');
 
-    if (!brandName || !modelName) {
-      setErrorMsg('Missing brand/model selection. Please restart booking.');
+    if (!draft?.brand?.id || !draft?.brand?.name) {
+      setErrorMsg('Missing brand selection. Please restart booking.');
       return;
     }
-
-    if (!selectedIssue) {
+    if (!draft?.model?.id || !draft?.model?.model_name) {
+      setErrorMsg('Missing model selection. Please restart booking.');
+      return;
+    }
+    if (!selectedService) {
       setErrorMsg('Please select an issue.');
       return;
     }
 
-    if (selectedIssue === 'Other' && !otherText.trim()) {
-      setErrorMsg('Please describe the issue.');
-      return;
-    }
-
     updateBookingDraft({
-      issue: { value: selectedIssue, otherText: otherText.trim(), effective: effectiveIssue }
+      issue: {
+        id: selectedService.id,
+        name: selectedService.name,
+        price: selectedService.price
+      }
     });
 
-    navigate('/confirm-booking');
+    navigate('/confirm');
   };
 
   return (
     <div className="grid gap-6">
       <div className="grid gap-2">
-        <h1 className="text-2xl font-black tracking-tight">Select issue</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-black tracking-tight">Select issue</h1>
+          <Link
+            to={draft?.brand?.id ? `/models?brand_id=${encodeURIComponent(draft.brand.id)}` : '/select-brand'}
+            className="text-sm font-semibold text-ocean-primary hover:underline"
+          >
+            Change model
+          </Link>
+        </div>
+
         <p className="max-w-3xl text-sm text-ocean-muted">
           Device:{' '}
           <span className="font-semibold text-ocean-text">
@@ -78,45 +145,38 @@ export default function SelectIssuePage() {
 
       {errorMsg ? <Alert>{errorMsg}</Alert> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ISSUES.map(issue => {
-          const active = selectedIssue === issue;
-          return (
-            <button
-              key={issue}
-              type="button"
-              onClick={() => setSelectedIssue(issue)}
-              className={cn(
-                'rounded-2xl border bg-white px-4 py-4 text-left shadow-[0_10px_20px_rgba(17,24,39,0.06)] transition',
-                'hover:-translate-y-0.5 hover:shadow-[0_16px_26px_rgba(17,24,39,0.10)] focus:outline-none focus:ring-4 focus:ring-blue-500/15',
-                active ? 'border-blue-500/30 ring-4 ring-blue-500/10' : 'border-black/10'
-              )}
-              aria-pressed={active ? 'true' : 'false'}
-            >
-              <div className="text-sm font-extrabold tracking-tight text-ocean-text">{issue}</div>
-              <div className="mt-1 text-xs text-ocean-muted">Tap to select</div>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-extrabold tracking-tight text-ocean-text">Choose a repair</div>
+        <div className="text-sm text-ocean-muted">{loading ? 'Loading…' : `${services.length} options`}</div>
       </div>
 
-      {selectedIssue === 'Other' ? (
-        <TextArea
-          label="Describe the issue"
-          value={otherText}
-          onChange={setOtherText}
-          placeholder="e.g., phone heats up, random restarts, microphone not working…"
-          required
-          rows={4}
-        />
+      {services.length === 0 && !loading ? (
+        <div className="rounded-2xl border border-black/10 bg-white p-5 text-sm text-ocean-muted shadow-[0_10px_20px_rgba(17,24,39,0.06)]">
+          No services found for this model. Add rows to <code className="font-mono">services</code> in Supabase.
+        </div>
       ) : null}
 
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {services.map(s => (
+          <ServiceCard
+            key={s.id}
+            name={s.name}
+            price={s.price}
+            active={String(selectedServiceId) === String(s.id)}
+            onClick={() => setSelectedServiceId(s.id)}
+          />
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button variant="secondary" onClick={() => navigate('/select-model?brand=' + encodeURIComponent(brandName))}>
+        <Button
+          variant="secondary"
+          onClick={() => (draft?.model?.id ? navigate(`/models?brand_id=${encodeURIComponent(draft.brand.id)}`) : navigate('/select-brand'))}
+        >
           Back
         </Button>
 
-        <Button onClick={onContinue} disabled={!effectiveIssue}>
+        <Button onClick={onContinue} disabled={!selectedService}>
           Continue
         </Button>
       </div>
