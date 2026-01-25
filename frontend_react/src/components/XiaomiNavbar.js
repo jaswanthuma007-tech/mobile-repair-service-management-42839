@@ -42,7 +42,8 @@ function IconButton({ title, onClick, children, className, ...props }) {
       aria-label={title}
       title={title}
       className={cx(
-        'inline-flex h-10 w-10 items-center justify-center rounded-full text-ocean-text transition',
+        // Fixed 40x40 to guarantee all header items share identical baseline sizing.
+        'inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-ocean-text transition',
         'hover:bg-blue-500/10 hover:text-ocean-primary',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2',
         className
@@ -125,7 +126,8 @@ function UnderlineNavItem({ to, children, onNavigate }) {
       onClick={onNavigate}
       className={({ isActive }) =>
         cx(
-          'relative px-3 py-2 text-[13px] font-semibold tracking-wide text-ocean-text transition-colors',
+          // Keep nav links a single-line, Xiaomi-like compact style.
+          'relative whitespace-nowrap px-3 py-2 text-[13px] font-semibold tracking-wide text-ocean-text transition-colors',
           'hover:text-ocean-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2',
           // Xiaomi-like underline behavior: subtle underline that animates in on hover.
           // Active state keeps underline visible.
@@ -147,7 +149,7 @@ function TabLink({ to, children, end }) {
       end={end}
       className={({ isActive }) =>
         cx(
-          'rounded-full px-3 py-1.5 text-sm font-semibold transition',
+          'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition',
           isActive ? 'bg-blue-600 text-white' : 'text-ocean-text hover:bg-blue-500/10 hover:text-ocean-primary'
         )
       }
@@ -339,10 +341,17 @@ export default function XiaomiNavbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/90 backdrop-blur">
-        <Container className="flex h-16 items-center justify-between">
-          {/* Left: logo + mobile hamburger */}
-          <div className="flex items-center gap-3">
+      <header
+        className={cx(
+          'sticky top-0 z-30',
+          // Subtle Xiaomi-like separation.
+          'border-b border-black/10 bg-white/90 shadow-[0_10px_26px_rgba(17,24,39,0.06)] backdrop-blur'
+        )}
+      >
+        {/* Primary row: fixed height 64px, single flex row, vertically centered */}
+        <Container className="flex h-16 items-center">
+          {/* Left cluster: logo + hamburger (mobile) */}
+          <div className="flex min-w-0 flex-none items-center gap-3">
             <button
               type="button"
               className={cx(
@@ -361,13 +370,19 @@ export default function XiaomiNavbar() {
                 className="h-9 w-9 rounded-xl bg-gradient-to-b from-blue-600 to-blue-700 shadow-[0_12px_22px_rgba(37,99,235,0.22)]"
                 aria-hidden="true"
               />
-              <span className="text-[15px] sm:text-base">MobileRepair</span>
+              <span className="whitespace-nowrap text-[15px] sm:text-base">MobileRepair</span>
             </Link>
           </div>
 
-          {/* Center: menu */}
-          <nav className="hidden items-center justify-center md:flex" aria-label="Primary">
-            <div className="flex items-center">
+          {/* Center cluster: menu (desktop) */}
+          <nav
+            className={cx(
+              // Center in remaining space, but never force wrapping.
+              'mx-auto hidden min-w-0 flex-1 items-center justify-center md:flex'
+            )}
+            aria-label="Primary"
+          >
+            <div className="flex min-w-0 items-center">
               {publicMenu.map((item) => (
                 <div
                   key={item.label}
@@ -384,9 +399,7 @@ export default function XiaomiNavbar() {
                         <div className="flex items-start justify-between gap-6">
                           <div className="min-w-0">
                             <div className="text-sm font-extrabold tracking-tight">{item.mega.title}</div>
-                            <div className="mt-1 text-xs text-ocean-muted">
-                              Quick links to common fixes and services.
-                            </div>
+                            <div className="mt-1 text-xs text-ocean-muted">Quick links to common fixes and services.</div>
                           </div>
                           <button
                             type="button"
@@ -438,9 +451,9 @@ export default function XiaomiNavbar() {
             </div>
           </nav>
 
-          {/* Right: search/cart/account + Book Repair CTA */}
-          <div className="flex items-center gap-1">
-            {/* Expanding inline search */}
+          {/* Right cluster: icons + CTA + account (never wrap, pinned to far right) */}
+          <div className="flex flex-none items-center justify-end gap-1">
+            {/* Desktop expanding inline search */}
             <form
               onSubmit={onSearchSubmit}
               className={cx(
@@ -471,27 +484,41 @@ export default function XiaomiNavbar() {
               />
             </form>
 
-            {/* Mobile: keep just icon */}
+            {/* Mobile: keep search icon visible */}
             <IconButton title="Search" onClick={() => setSearchOpen(true)} className="md:hidden">
               <IconSearch />
             </IconButton>
 
+            {/* Cart grouped with search */}
             <IconButton title="Cart" onClick={onCart}>
               <IconCart />
             </IconButton>
 
+            {/* Desktop Book Repair */}
             <button
               type="button"
               onClick={onBookRepair}
               className={cx(
-                'ml-1 hidden items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-extrabold text-white transition md:inline-flex',
+                'ml-1 hidden items-center whitespace-nowrap rounded-full bg-blue-600 px-4 py-2 text-sm font-extrabold text-white transition md:inline-flex',
                 'hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
               )}
             >
               Book Repair
             </button>
 
-            {/* Account / login dropdown */}
+            {/* Mobile Book Repair (kept visible per requirement) */}
+            <button
+              type="button"
+              onClick={onBookRepair}
+              className={cx(
+                'ml-1 inline-flex items-center whitespace-nowrap rounded-full bg-blue-600 px-3 py-2 text-xs font-extrabold text-white transition md:hidden',
+                'hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
+              )}
+            >
+              Book Repair
+            </button>
+
+            {/* Account / login dropdown (far right) */}
             <div className="relative ml-1">
               <button
                 ref={accountBtnRef}
@@ -509,7 +536,7 @@ export default function XiaomiNavbar() {
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-full">
                   <IconUser />
                 </span>
-                <span className="hidden lg:inline max-w-[140px] truncate">{accountLabel}</span>
+                <span className="hidden max-w-[140px] truncate whitespace-nowrap lg:inline">{accountLabel}</span>
                 <span className="hidden lg:inline text-ocean-muted">
                   <IconChevronDown />
                 </span>
@@ -570,11 +597,11 @@ export default function XiaomiNavbar() {
           </div>
         </Container>
 
-        {/* Dashboard second-row tabs */}
+        {/* Dashboard second-row tabs (kept as-is, already aligned; prevent wrapping) */}
         {tabs.length ? (
           <div className="border-t border-black/5 bg-white/70 backdrop-blur">
             <Container className="flex h-12 items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2" aria-label="Dashboard tabs">
+              <div className="flex min-w-0 items-center gap-2 overflow-x-auto" aria-label="Dashboard tabs">
                 {tabs.map((t) => (
                   <TabLink key={t.label} to={t.to} end={t.end}>
                     {t.label}
@@ -582,18 +609,20 @@ export default function XiaomiNavbar() {
                 ))}
               </div>
 
-              <div className="hidden sm:flex items-center gap-2 text-xs text-ocean-muted">
-                <span className="rounded-full bg-blue-500/10 px-3 py-1 font-semibold">Realtime enabled</span>
+              <div className="hidden flex-none items-center gap-2 text-xs text-ocean-muted sm:flex">
+                <span className="whitespace-nowrap rounded-full bg-blue-500/10 px-3 py-1 font-semibold">
+                  Realtime enabled
+                </span>
               </div>
             </Container>
           </div>
         ) : null}
 
-        {/* Subtle Xiaomi-like shadow at bottom */}
+        {/* Xiaomi-like bottom hairline */}
         <div className="pointer-events-none h-px w-full bg-gradient-to-r from-transparent via-black/10 to-transparent" />
       </header>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer (hamburger collapse) */}
       <div
         className={cx('fixed inset-0 z-40 md:hidden', drawerOpen ? 'pointer-events-auto' : 'pointer-events-none')}
         aria-hidden={!drawerOpen}
@@ -657,7 +686,7 @@ export default function XiaomiNavbar() {
                     onBookRepair();
                   }}
                   className={cx(
-                    'inline-flex flex-1 items-center justify-center rounded-xl bg-blue-600 px-3 py-2 text-sm font-extrabold text-white transition',
+                    'inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm font-extrabold text-white transition',
                     'hover:bg-blue-700'
                   )}
                 >
@@ -668,7 +697,7 @@ export default function XiaomiNavbar() {
                   to={user ? '/customer' : '/login'}
                   onClick={closeDrawer}
                   className={cx(
-                    'inline-flex flex-1 items-center justify-center rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold text-ocean-text transition',
+                    'inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold text-ocean-text transition',
                     'hover:border-blue-600/30 hover:bg-blue-500/10 hover:text-ocean-primary'
                   )}
                 >
@@ -685,7 +714,7 @@ export default function XiaomiNavbar() {
                       closeDrawer();
                       onLogout();
                     }}
-                    className="w-full rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700"
+                    className="w-full whitespace-nowrap rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700"
                   >
                     Log out
                   </button>
