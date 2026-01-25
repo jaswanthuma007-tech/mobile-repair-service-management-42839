@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import { Container } from '../ui/tw';
 import DrawerNavItem from './DrawerNavItem';
 
@@ -33,7 +34,7 @@ function useEscapeToClose(isOpen, onClose) {
  * Minimal inline SVG icon button (keeps dependencies at zero).
  * `title` provides accessible name for assistive tech.
  */
-function IconButton({ title, onClick, children, className }) {
+function IconButton({ title, onClick, children, className, ...props }) {
   return (
     <button
       type="button"
@@ -46,6 +47,7 @@ function IconButton({ title, onClick, children, className }) {
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2',
         className
       )}
+      {...props}
     >
       {children}
     </button>
@@ -55,11 +57,7 @@ function IconButton({ title, onClick, children, className }) {
 function IconSearch(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true" {...props}>
-      <path
-        d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
+      <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2" />
       <path d="M16.25 16.25 21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
@@ -86,17 +84,16 @@ function IconCart(props) {
 function IconUser(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true" {...props}>
-      <path
-        d="M12 12a4.25 4.25 0 1 0-4.25-4.25A4.25 4.25 0 0 0 12 12Z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M4.5 21a7.5 7.5 0 0 1 15 0"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M12 12a4.25 4.25 0 1 0-4.25-4.25A4.25 4.25 0 0 0 12 12Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M4.5 21a7.5 7.5 0 0 1 15 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconChevronDown(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true" {...props}>
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -143,34 +140,149 @@ function UnderlineNavItem({ to, children, onNavigate }) {
   );
 }
 
+function TabLink({ to, children, end }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        cx(
+          'rounded-full px-3 py-1.5 text-sm font-semibold transition',
+          isActive ? 'bg-blue-600 text-white' : 'text-ocean-text hover:bg-blue-500/10 hover:text-ocean-primary'
+        )
+      }
+    >
+      {children}
+    </NavLink>
+  );
+}
 
+function getTabsForPath(pathname) {
+  // Defaults per role area.
+  if (pathname.startsWith('/customer')) {
+    return [
+      { label: 'Overview', to: '/customer', end: true },
+      { label: 'New booking', to: '/select-brand' },
+      { label: 'Track repair', to: '/track' }
+    ];
+  }
+  if (pathname.startsWith('/technician')) {
+    return [
+      { label: 'Assigned', to: '/technician', end: true },
+      { label: 'Track repair', to: '/track' },
+      { label: 'Marketing', to: '/home' }
+    ];
+  }
+  if (pathname.startsWith('/admin')) {
+    return [
+      { label: 'All repairs', to: '/admin', end: true },
+      { label: 'Track repair', to: '/track' },
+      { label: 'Marketing', to: '/home' }
+    ];
+  }
+  return [];
+}
+
+function isDashboardArea(pathname) {
+  return (
+    pathname.startsWith('/customer') ||
+    pathname.startsWith('/technician') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/select-') ||
+    pathname.startsWith('/models') ||
+    pathname.startsWith('/issues') ||
+    pathname.startsWith('/confirm') ||
+    pathname.startsWith('/confirm-')
+  );
+}
 
 // PUBLIC_INTERFACE
 export default function XiaomiNavbar() {
-  /** Sticky Xiaomi-style navbar for the public marketing site. Includes responsive drawer and icon actions. */
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  /** Sticky Xiaomi-style navbar used across public marketing + protected dashboards. */
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [megaOpenKey, setMegaOpenKey] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [accountOpen, setAccountOpen] = useState(false);
+
   const drawerTitleId = useId();
   const firstDrawerLinkRef = useRef(null);
+  const accountBtnRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-  const menu = useMemo(
+  const isDashboard = isDashboardArea(location.pathname);
+  const tabs = useMemo(() => (isDashboard ? getTabsForPath(location.pathname) : []), [isDashboard, location.pathname]);
+
+  const publicMenu = useMemo(
     () => [
       { label: 'Home', to: '/home' },
-      { label: 'Phones', to: '/services' },
-      { label: 'Tablets', to: '/services' },
-      { label: 'TV & Smart Home', to: '/services' },
-      { label: 'Smart Watch & Audio', to: '/services' },
-      { label: 'Services', to: '/services' }
+      {
+        label: 'Phones',
+        to: '/services',
+        key: 'phones',
+        mega: {
+          title: 'Phone repairs',
+          items: [
+            { title: 'Screen repair', desc: 'Cracked, flickering, or unresponsive screens.', to: '/services' },
+            { title: 'Battery replacement', desc: 'Fast swaps with quality parts.', to: '/services' },
+            { title: 'Camera & mic', desc: 'Fix blurry cameras and audio issues.', to: '/services' }
+          ]
+        }
+      },
+      {
+        label: 'Tablets',
+        to: '/services',
+        key: 'tablets',
+        mega: {
+          title: 'Tablet repairs',
+          items: [
+            { title: 'iPad repairs', desc: 'Screens, batteries, charging ports.', to: '/services' },
+            { title: 'Android tablets', desc: 'Samsung, Lenovo, Huawei and more.', to: '/services' }
+          ]
+        }
+      },
+      {
+        label: 'TV & Smart Home',
+        to: '/services',
+        key: 'smarthome',
+        mega: {
+          title: 'Smart home',
+          items: [
+            { title: 'Device setup', desc: 'Pairing, Wi‑Fi, and configuration.', to: '/services' },
+            { title: 'Diagnostics', desc: 'Find faults quickly and transparently.', to: '/services' }
+          ]
+        }
+      },
+      {
+        label: 'Smart Watch & Audio',
+        to: '/services',
+        key: 'wearables',
+        mega: {
+          title: 'Wearables & audio',
+          items: [
+            { title: 'Watch battery', desc: 'Restore battery life and seals.', to: '/services' },
+            { title: 'Earbuds', desc: 'Charging, sound, and connectivity.', to: '/services' }
+          ]
+        }
+      },
+      { label: 'Services', to: '/services', key: 'services' }
     ],
     []
   );
 
   const closeDrawer = () => setDrawerOpen(false);
 
-  // Close drawer on route change (prevents stale overlay).
+  // Close overlays on route change (prevents stale overlay).
   useEffect(() => {
     closeDrawer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setMegaOpenKey(null);
+    setAccountOpen(false);
+    // keep search state unless you prefer to close it:
+    // setSearchOpen(false);
   }, [location.pathname]);
 
   useBodyScrollLock(drawerOpen);
@@ -178,28 +290,58 @@ export default function XiaomiNavbar() {
 
   useEffect(() => {
     if (!drawerOpen) return;
-    // Focus management for accessibility: focus first item in drawer.
     const t = window.setTimeout(() => {
       firstDrawerLinkRef.current?.focus?.();
     }, 50);
     return () => window.clearTimeout(t);
   }, [drawerOpen]);
 
-  const onSearch = () => {
-    // Placeholder behavior: we don't implement search yet, but keep the interaction accessible.
-    // Could later open a search modal or navigate to a search page.
-    window.alert('Search coming soon');
+  useEffect(() => {
+    if (!searchOpen) return;
+    const t = window.setTimeout(() => searchInputRef.current?.focus?.(), 50);
+    return () => window.clearTimeout(t);
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!accountOpen) return undefined;
+    const onDocDown = (e) => {
+      if (accountBtnRef.current && accountBtnRef.current.contains(e.target)) return;
+      setAccountOpen(false);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, [accountOpen]);
+
+  const onSearchSubmit = (e) => {
+    e.preventDefault();
+    // For now: no global search page exists. Keep accessible + non-blocking.
+    window.alert(`Search coming soon. Query: ${searchValue || '(empty)'}`);
   };
 
   const onCart = () => {
     window.alert('Cart coming soon');
   };
 
+  const onBookRepair = () => {
+    // Direct to multi-step booking flow (confirmed route: /select-brand).
+    navigate('/select-brand');
+  };
+
+  const onLogout = async () => {
+    try {
+      await signOut();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
+
+  const accountLabel = user ? (user.email ? user.email.split('@')[0] : 'Account') : 'Account';
+
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-black/5 bg-white/90 backdrop-blur">
         <Container className="flex h-16 items-center justify-between">
-          {/* Left: logo */}
+          {/* Left: logo + mobile hamburger */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -226,40 +368,226 @@ export default function XiaomiNavbar() {
           {/* Center: menu */}
           <nav className="hidden items-center justify-center md:flex" aria-label="Primary">
             <div className="flex items-center">
-              {menu.map((item) => (
-                <UnderlineNavItem key={item.label} to={item.to}>
-                  {item.label}
-                </UnderlineNavItem>
+              {publicMenu.map((item) => (
+                <div
+                  key={item.label}
+                  className="relative"
+                  onMouseEnter={() => setMegaOpenKey(item.mega ? item.key : null)}
+                  onMouseLeave={() => setMegaOpenKey((k) => (k === item.key ? null : k))}
+                >
+                  <UnderlineNavItem to={item.to}>{item.label}</UnderlineNavItem>
+
+                  {/* Mega menu */}
+                  {item.mega && megaOpenKey === item.key ? (
+                    <div className="absolute left-1/2 top-full w-[720px] -translate-x-1/2 pt-3">
+                      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_18px_40px_rgba(17,24,39,0.12)]">
+                        <div className="flex items-start justify-between gap-6">
+                          <div className="min-w-0">
+                            <div className="text-sm font-extrabold tracking-tight">{item.mega.title}</div>
+                            <div className="mt-1 text-xs text-ocean-muted">
+                              Quick links to common fixes and services.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="rounded-lg px-2 py-1 text-xs font-semibold text-ocean-muted hover:bg-black/5 hover:text-ocean-text"
+                            onClick={() => setMegaOpenKey(null)}
+                          >
+                            Close
+                          </button>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {item.mega.items.map((m) => (
+                            <Link
+                              key={m.title}
+                              to={m.to}
+                              className={cx(
+                                'rounded-2xl border border-black/10 p-4 transition',
+                                'hover:border-blue-600/25 hover:bg-blue-500/5'
+                              )}
+                              onClick={() => setMegaOpenKey(null)}
+                            >
+                              <div className="text-sm font-extrabold tracking-tight text-ocean-text">{m.title}</div>
+                              <div className="mt-1 text-xs text-ocean-muted">{m.desc}</div>
+                            </Link>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-black/10 pt-4">
+                          <div className="text-xs text-ocean-muted">Ready to start? Book in 4 quick steps.</div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMegaOpenKey(null);
+                              onBookRepair();
+                            }}
+                            className={cx(
+                              'rounded-full bg-blue-600 px-4 py-2 text-sm font-extrabold text-white transition',
+                              'hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
+                            )}
+                          >
+                            Book Repair
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
           </nav>
 
-          {/* Right: icons */}
+          {/* Right: search/cart/account + Book Repair CTA */}
           <div className="flex items-center gap-1">
-            <IconButton title="Search" onClick={onSearch}>
+            {/* Expanding inline search */}
+            <form
+              onSubmit={onSearchSubmit}
+              className={cx(
+                'hidden items-center md:flex',
+                'rounded-full border border-black/10 bg-white transition',
+                searchOpen ? 'w-72 shadow-[0_10px_24px_rgba(17,24,39,0.08)]' : 'w-10 border-transparent bg-transparent'
+              )}
+              aria-label="Site search"
+            >
+              <IconButton
+                title={searchOpen ? 'Close search' : 'Open search'}
+                onClick={() => setSearchOpen((v) => !v)}
+                className={cx(searchOpen ? 'hover:bg-blue-500/10' : '')}
+                aria-expanded={searchOpen}
+              >
+                <IconSearch />
+              </IconButton>
+
+              <input
+                ref={searchInputRef}
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                className={cx(
+                  'w-full bg-transparent pr-3 text-sm text-ocean-text outline-none placeholder:text-ocean-muted',
+                  searchOpen ? 'block' : 'hidden'
+                )}
+                placeholder="Search repairs, services…"
+              />
+            </form>
+
+            {/* Mobile: keep just icon */}
+            <IconButton title="Search" onClick={() => setSearchOpen(true)} className="md:hidden">
               <IconSearch />
             </IconButton>
+
             <IconButton title="Cart" onClick={onCart}>
               <IconCart />
             </IconButton>
 
-            {/* Account/Login */}
-            <Link
-              to="/login"
+            <button
+              type="button"
+              onClick={onBookRepair}
               className={cx(
-                'inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm font-semibold text-ocean-text transition',
-                'hover:bg-blue-500/10 hover:text-ocean-primary',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
+                'ml-1 hidden items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-extrabold text-white transition md:inline-flex',
+                'hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
               )}
-              aria-label="Account"
             >
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full">
-                <IconUser />
-              </span>
-              <span className="hidden lg:inline">Account</span>
-            </Link>
+              Book Repair
+            </button>
+
+            {/* Account / login dropdown */}
+            <div className="relative ml-1">
+              <button
+                ref={accountBtnRef}
+                type="button"
+                onClick={() => setAccountOpen((v) => !v)}
+                aria-label="Account menu"
+                aria-haspopup="menu"
+                aria-expanded={accountOpen}
+                className={cx(
+                  'inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm font-semibold text-ocean-text transition',
+                  'hover:bg-blue-500/10 hover:text-ocean-primary',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
+                )}
+              >
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full">
+                  <IconUser />
+                </span>
+                <span className="hidden lg:inline max-w-[140px] truncate">{accountLabel}</span>
+                <span className="hidden lg:inline text-ocean-muted">
+                  <IconChevronDown />
+                </span>
+              </button>
+
+              {accountOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_40px_rgba(17,24,39,0.12)]"
+                >
+                  <div className="border-b border-black/10 px-4 py-3">
+                    <div className="text-xs text-ocean-muted">Signed in</div>
+                    <div className="mt-0.5 truncate text-sm font-extrabold">{user?.email || 'Guest'}</div>
+                  </div>
+
+                  {user ? (
+                    <div className="p-2">
+                      <Link
+                        to="/customer"
+                        role="menuitem"
+                        className="block rounded-xl px-3 py-2 text-sm font-semibold text-ocean-text hover:bg-black/5"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-500/10"
+                        onClick={onLogout}
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-2">
+                      <Link
+                        to="/login"
+                        role="menuitem"
+                        className="block rounded-xl px-3 py-2 text-sm font-semibold text-ocean-text hover:bg-black/5"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        Log in
+                      </Link>
+                      <Link
+                        to="/register"
+                        role="menuitem"
+                        className="block rounded-xl px-3 py-2 text-sm font-semibold text-ocean-text hover:bg-black/5"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        Create account
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
         </Container>
+
+        {/* Dashboard second-row tabs */}
+        {tabs.length ? (
+          <div className="border-t border-black/5 bg-white/70 backdrop-blur">
+            <Container className="flex h-12 items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2" aria-label="Dashboard tabs">
+                {tabs.map((t) => (
+                  <TabLink key={t.label} to={t.to} end={t.end}>
+                    {t.label}
+                  </TabLink>
+                ))}
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 text-xs text-ocean-muted">
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 font-semibold">Realtime enabled</span>
+              </div>
+            </Container>
+          </div>
+        ) : null}
 
         {/* Subtle Xiaomi-like shadow at bottom */}
         <div className="pointer-events-none h-px w-full bg-gradient-to-r from-transparent via-black/10 to-transparent" />
@@ -267,19 +595,13 @@ export default function XiaomiNavbar() {
 
       {/* Mobile drawer */}
       <div
-        className={cx(
-          'fixed inset-0 z-40 md:hidden',
-          drawerOpen ? 'pointer-events-auto' : 'pointer-events-none'
-        )}
+        className={cx('fixed inset-0 z-40 md:hidden', drawerOpen ? 'pointer-events-auto' : 'pointer-events-none')}
         aria-hidden={!drawerOpen}
       >
         {/* Backdrop */}
         <button
           type="button"
-          className={cx(
-            'absolute inset-0 bg-black/30 transition-opacity',
-            drawerOpen ? 'opacity-100' : 'opacity-0'
-          )}
+          className={cx('absolute inset-0 bg-black/30 transition-opacity', drawerOpen ? 'opacity-100' : 'opacity-0')}
           aria-label="Close menu"
           onClick={closeDrawer}
           tabIndex={drawerOpen ? 0 : -1}
@@ -315,7 +637,7 @@ export default function XiaomiNavbar() {
           </div>
 
           <nav className="grid gap-2 p-3" aria-label="Mobile navigation">
-            {menu.map((item, idx) => (
+            {publicMenu.map((item, idx) => (
               <DrawerNavItem
                 key={item.label}
                 to={item.to}
@@ -327,25 +649,47 @@ export default function XiaomiNavbar() {
 
             <div className="mt-2 rounded-2xl border border-black/10 p-3">
               <div className="text-xs text-ocean-muted">Quick actions</div>
-              <div className="mt-2 flex items-center gap-2">
-                <IconButton title="Search" onClick={onSearch} className="border border-black/10">
-                  <IconSearch />
-                </IconButton>
-                <IconButton title="Cart" onClick={onCart} className="border border-black/10">
-                  <IconCart />
-                </IconButton>
-                <Link
-                  to="/login"
-                  onClick={closeDrawer}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeDrawer();
+                    onBookRepair();
+                  }}
                   className={cx(
-                    'ml-auto inline-flex items-center gap-2 rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold text-ocean-text transition',
-                    'hover:border-blue-600/30 hover:bg-blue-500/10 hover:text-ocean-primary',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-2'
+                    'inline-flex flex-1 items-center justify-center rounded-xl bg-blue-600 px-3 py-2 text-sm font-extrabold text-white transition',
+                    'hover:bg-blue-700'
                   )}
                 >
-                  <IconUser />
-                  <span>Account</span>
+                  Book Repair
+                </button>
+
+                <Link
+                  to={user ? '/customer' : '/login'}
+                  onClick={closeDrawer}
+                  className={cx(
+                    'inline-flex flex-1 items-center justify-center rounded-xl border border-black/10 px-3 py-2 text-sm font-semibold text-ocean-text transition',
+                    'hover:border-blue-600/30 hover:bg-blue-500/10 hover:text-ocean-primary'
+                  )}
+                >
+                  <span className="mr-2 inline-flex">
+                    <IconUser />
+                  </span>
+                  {user ? 'Dashboard' : 'Login'}
                 </Link>
+
+                {user ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeDrawer();
+                      onLogout();
+                    }}
+                    className="w-full rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700"
+                  >
+                    Log out
+                  </button>
+                ) : null}
               </div>
             </div>
           </nav>
@@ -354,4 +698,3 @@ export default function XiaomiNavbar() {
     </>
   );
 }
-
