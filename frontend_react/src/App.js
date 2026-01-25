@@ -10,6 +10,7 @@ import DashboardShell from './layouts/DashboardShell';
 import HomePage from './pages/public/HomePage';
 import ServicesPage from './pages/public/ServicesPage';
 import BookRepairPage from './pages/public/BookRepairPage';
+import BookingFlowOverviewPage from './pages/public/BookingFlowOverviewPage';
 import TrackRepairPage from './pages/public/TrackRepairPage';
 
 import LoginPage from './pages/LoginPage';
@@ -67,6 +68,7 @@ function App() {
             <Route path="/home" element={<HomePage />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/book" element={<BookRepairPage />} />
+            <Route path="/book-flow" element={<BookingFlowOverviewPage />} />
             <Route path="/track" element={<TrackRepairPage />} />
           </Route>
 
